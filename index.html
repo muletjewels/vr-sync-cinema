@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>VR Sync Cinema V5</title>
+    <title>VR Sync Cinema V5.1</title>
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 
@@ -57,7 +57,6 @@
             text-align: center;
         }
 
-        /* File Input Styling */
         input[type="file"] { display: none; }
 
         .file-upload-btn {
@@ -184,7 +183,7 @@
 <body>
 
     <header>
-        <h1>VR Sync Cinema V5</h1>
+        <h1>VR Sync Cinema V5.1</h1>
     </header>
 
     <!-- SCREEN 1: SELECTION -->
@@ -284,15 +283,11 @@
                 this.setupFileListener();
             },
 
-            // --- NEW: Random Name Generator ---
             generateRandomName: function() {
                 const adjectives = ['happy', 'brave', 'calm', 'eager', 'fancy', 'gentle', 'huge', 'jolly', 'kind', 'lively'];
                 const nouns = ['panda', 'tiger', 'lion', 'bear', 'fox', 'owl', 'eagle', 'shark', 'wolf'];
                 const num = Math.floor(Math.random() * 999);
-                
-                const name = adjectives[Math.floor(Math.random() * adjectives.length)] + '-' + 
-                             nouns[Math.floor(Math.random() * nouns.length)] + '-' + num;
-                
+                const name = adjectives[Math.floor(Math.random() * adjectives.length)] + '-' + nouns[Math.floor(Math.random() * nouns.length)] + '-' + num;
                 $('#host-room-name').val(name);
             },
 
@@ -312,13 +307,10 @@
                 $('#local-file-input').on('change', (e) => {
                     const file = e.target.files[0];
                     if (!file) return;
-                    
                     this.selectedFile = file;
                     $('#file-name').text(file.name + " (" + (file.size/1024/1024).toFixed(2) + " MB)");
-                    
                     if(file.size > 300 * 1024 * 1024) { $('#warning-text').show(); } 
                     else { $('#warning-text').hide(); }
-
                     const url = URL.createObjectURL(file);
                     $('#main-video')[0].src = url;
                     this.sendFileToGuests(file);
@@ -329,20 +321,12 @@
                 if(!this.isHost) return;
                 $('#status-msg').text("Sending file to guests...");
                 $('#progress-container').show();
-                
                 this.connections.forEach(conn => {
                     if (conn.open) {
-                        conn.send({ 
-                            type: 'file-transfer-start', 
-                            name: file.name,
-                            size: file.size,
-                            mime: file.type
-                        });
+                        conn.send({ type: 'file-transfer-start', name: file.name, size: file.size, mime: file.type });
                         conn.send(file); 
                     }
                 });
-
-                // Visual Fake Progress
                 let percent = 0;
                 let interval = setInterval(() => {
                     percent += 5;
@@ -363,14 +347,10 @@
             initHost: function() {
                 const customName = $('#host-room-name').val().trim();
                 if(!customName) return alert("Please enter a Room Name or generate one.");
-                
-                // Destroy previous peer if exists
                 if(this.peer) { this.peer.destroy(); this.peer = null; }
 
                 this.isHost = true;
                 $('#status-msg').text("Connecting to server...");
-                
-                // Try to create the room
                 this.peer = new Peer(customName, { debug: 1 });
 
                 this.peer.on('open', (id) => {
@@ -384,15 +364,9 @@
                 this.peer.on('connection', (conn) => this.handleGuestConnection(conn));
 
                 this.peer.on('error', (err) => {
-                    if (err.type === 'unavailable-id') {
-                        alert("❌ Room Name Taken! \n\nPlease choose a different name or click 'Generate'.");
-                        $('#host-room-name').addClass('error-input');
-                    } else if (err.type === 'network') {
-                        alert("⚠️ Network Error \n\nPlease check your internet connection. The PeerJS cloud might be unreachable.");
-                    } else {
-                        console.error(err);
-                        alert("Error: " + err.type);
-                    }
+                    if (err.type === 'unavailable-id') alert("❌ Room Name Taken!");
+                    else if (err.type === 'network') alert("⚠️ Network Error. Check internet.");
+                    else alert("Error: " + err.type);
                 });
             },
 
@@ -402,17 +376,13 @@
                 conn.on('open', () => {
                     const video = $('#main-video')[0];
                     const mode = $('#url-input-container').is(':visible') ? 'url' : 'file';
-                    
                     conn.send({
                         type: 'init',
                         mode: mode,
                         url: $('#video-url-input').val(),
                         hasFile: !!this.selectedFile
                     });
-                    
-                    if(this.selectedFile) {
-                         this.sendFileToGuests(this.selectedFile);
-                    }
+                    if(this.selectedFile) this.sendFileToGuests(this.selectedFile);
                 });
                 conn.on('close', () => { this.connections = this.connections.filter(c => c !== conn); this.updatePeerCount(); });
                 conn.on('data', (data) => {
@@ -453,24 +423,50 @@
                 if(this.peer) { this.peer.destroy(); this.peer = null; }
                 
                 $('#status-msg').text("Connecting to Host...");
+                // Important: Create peer first
                 this.peer = new Peer(null, { debug: 1 });
-                this.conn = this.peer.connect(hostId);
-                
-                this.conn.on('open', () => {
-                    this.isHost = false;
-                    this.showTheaterScreen();
-                    $('#host-controls-area').hide();
-                    $('#host-file-area').hide();
-                    $('#url-input-container').hide();
-                    $('#toggle-source-btn').hide();
-                    $('#status-msg').text("Connected: " + hostId);
+
+                // WAIT for peer to be ready before connecting
+                this.peer.on('open', (id) => {
+                    console.log("My Guest ID is: " + id);
+                    $('#status-msg').text("Handshaking...");
+                    
+                    this.conn = this.peer.connect(hostId, {
+                        reliable: true
+                    });
+
+                    // --- TIMEOUT HANDLER ---
+                    // If connection takes > 15 seconds, assume failure
+                    let connectionTimeout = setTimeout(() => {
+                        alert("⏱️ Connection Timed Out. \n\n1. Check if Host is online.\n2. Disable AdBlockers/VPN.\n3. Try a different network.");
+                        $('#status-msg').text("Connection Failed.");
+                    }, 15000);
+
+                    this.conn.on('open', () => {
+                        clearTimeout(connectionTimeout);
+                        this.isHost = false;
+                        this.showTheaterScreen();
+                        $('#host-controls-area').hide();
+                        $('#host-file-area').hide();
+                        $('#url-input-container').hide();
+                        $('#toggle-source-btn').hide();
+                        $('#status-msg').text("Connected: " + hostId);
+                    });
+
+                    this.conn.on('error', (err) => {
+                        clearTimeout(connectionTimeout);
+                        console.error("Connection Error:", err);
+                        alert("Connection Failed: " + err.type);
+                        $('#status-msg').text("Error.");
+                    });
+
+                    this.conn.on('data', (data) => this.handleHostData(data));
                 });
-                
-                this.conn.on('data', (data) => this.handleHostData(data));
-                
-                this.conn.on('error', (err) => {
+
+                this.peer.on('error', (err) => {
                     if(err.type === 'peer-unavailable') alert("❌ Room Not Found. Check the spelling.");
-                    else alert("Connection Error.");
+                    else if(err.type === 'network') alert("⚠️ Network Error. Cannot reach PeerJS server.");
+                    else alert("Error: " + err.type);
                 });
             },
 
@@ -478,7 +474,6 @@
                 const video = $('#main-video')[0];
                 this.isSyncing = true;
 
-                // FILE TRANSFER HANDLING
                 if(data instanceof Blob) {
                     $('#status-msg').text("Receiving File...");
                     $('#progress-container').show();
@@ -490,7 +485,6 @@
                     return;
                 }
 
-                // STANDARD MESSAGE HANDLING
                 switch(data.type) {
                     case 'init': 
                         if(data.mode === 'url' && data.url) { video.src = data.url; video.play(); }
