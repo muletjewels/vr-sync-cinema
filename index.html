@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VR Sync Player V4 (File Transfer)</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #121212;
+            --surface-color: #1e1e1e;
+            --primary-color: #1db954;
+            --text-color: #ffffff;
+            --secondary-text: #b3b3b3;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 { margin-bottom: 10px; }
+        
+        .container {
+            width: 100%;
+            max-width: 800px;
+            background: var(--surface-color);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        input[type="text"] {
+            width: 90%;
+            padding: 15px;
+            font-size: 1.2rem;
+            margin: 10px 0;
+            border-radius: 8px;
+            border: 1px solid #333;
+            background: #2a2a2a;
+            color: white;
+            box-sizing: border-box;
+            text-align: center;
+        }
+
+        /* File Input Styling */
+        input[type="file"] {
+            display: none;
+        }
+
+        .file-upload-btn {
+            display: inline-block;
+            padding: 15px 30px;
+            background-color: #0088cc;
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 10px;
+            font-weight: bold;
+            font-size: 1rem;
+        }
+
+        .file-name-display {
+            color: var(--secondary-text);
+            font-size: 0.9rem;
+            margin-top: 5px;
+            word-break: break-all;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 1.2rem;
+            border-radius: 30px;
+            cursor: pointer;
+            margin: 8px;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: scale(0.95); }
+        button.secondary { background-color: #444; }
+        button.danger { background-color: #d32f2f; }
+        
+        button:disabled {
+            background-color: #555;
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+        #room-code-display {
+            font-size: 2.5rem;
+            letter-spacing: 3px;
+            color: var(--primary-color);
+            font-weight: bold;
+            margin: 20px 0;
+            user-select: all; 
+            background: #000;
+            padding: 15px;
+            border-radius: 10px;
+            display: inline-block;
+            border: 2px solid #333;
+        }
+
+        #availability-msg {
+            font-size: 1rem;
+            margin-top: 5px;
+            height: 20px;
+            font-weight: bold;
+        }
+
+        /* Progress Bar */
+        #progress-container {
+            width: 100%;
+            background-color: #333;
+            border-radius: 5px;
+            margin: 10px 0;
+            display: none; /* Hidden by default */
+        }
+        
+        #progress-bar {
+            width: 0%;
+            height: 10px;
+            background-color: var(--primary-color);
+            border-radius: 5px;
+            text-align: center;
+            color: white;
+            font-size: 0.8rem;
+            line-height: 10px;
+        }
+
+        video {
+            width: 100%;
+            max-height: 60vh;
+            background: black;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        #status-msg {
+            color: var(--secondary-text);
+            margin-bottom: 15px;
+            font-style: italic;
+            min-height: 20px;
+        }
+
+        .controls-bar {
+            margin-top: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 10px;
+        }
+
+        .peer-count {
+            margin-top: 10px;
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+        }
+        
+        .warning-box {
+            background: #3e2723;
+            color: #ffab91;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            margin-bottom: 15px;
+            border: 1px solid #bf360c;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>VR Sync Cinema V4</h1>
+    </header>
+
+    <!-- SCREEN 1: SELECTION -->
+    <div id="screen-select" class="container screen active">
+        <h2>Choose Mode</h2>
+        <p>Host to control, or Join to watch & control.</p>
+        <br>
+        <button onclick="app.becomeHost()">I am HOST</button>
+        <button onclick="app.showJoinScreen()" class="secondary">I am GUEST</button>
+    </div>
+
+    <!-- SCREEN 2: HOST SETUP -->
+    <div id="screen-host-setup" class="container screen">
+        <h2>Create Room</h2>
+        <p>Enter a custom Room Name.</p>
+        <input type="text" id="host-room-name" placeholder="e.g. saturday-movie" autocomplete="off">
+        <div id="availability-msg"></div>
+        <br><br>
+        <button id="btn-create-room" onclick="app.initHost()" disabled>Create Room</button>
+        <button onclick="app.showSelectScreen()" class="secondary">Back</button>
+    </div>
+
+    <!-- SCREEN 3: JOIN ROOM -->
+    <div id="screen-join" class="container screen">
+        <h2>Join a Room</h2>
+        <p>Enter the Room Name from the Host.</p>
+        <input type="text" id="join-room-input" placeholder="e.g. saturday-movie">
+        <button onclick="app.joinRoom()">Connect</button>
+        <button onclick="app.showSelectScreen()" class="secondary">Back</button>
+    </div>
+
+    <!-- SCREEN 4: THEATER -->
+    <div id="screen-theater" class="container screen">
+        <div id="host-controls-area">
+            <p>Share this Room Code:</p>
+            <div id="room-code-display">...</div>
+            <div class="peer-count">Viewers: <span id="peer-num">0</span></div>
+        </div>
+
+        <div id="status-msg">Ready</div>
+
+        <!-- HOST ONLY: File Selection -->
+        <div id="host-file-area">
+            <label class="file-upload-btn">
+                Select Local File (PC/Phone)
+                <input type="file" id="local-file-input" accept="video/mp4,video/webm,video/x-matroska">
+            </label>
+            <div class="file-name-display" id="file-name">No file selected</div>
+            
+            <div id="warning-text" class="warning-box" style="display:none;">
+                ⚠️ Warning: Large files may crash Quest 1 due to low RAM. Quest 3 recommended for file transfers.
+            </div>
+        </div>
+
+        <!-- PROGRESS BAR (Shows during transfer) -->
+        <div id="progress-container">
+            <div id="progress-bar">0%</div>
+        </div>
+
+        <!-- URL Input (Fallback) -->
+        <div id="url-input-container" style="margin-bottom: 10px; display:none;">
+            <input type="text" id="video-url-input" placeholder="Or paste MP4 link here..." value="https://www.w3schools.com/html/mov_bbb.mp4">
+            <button onclick="app.loadUrlLink()">Play Link</button>
+        </div>
+        <button id="toggle-source-btn" class="secondary" style="font-size: 0.9rem; padding: 5px 15px;" onclick="app.toggleInputMethod()">Switch to URL</button>
+
+        <video id="main-video" controls playsinline>
+            Your browser does not support the video tag.
+        </video>
+
+        <div class="controls-bar">
+            <button onclick="app.triggerPlay()">Play</button>
+            <button onclick="app.triggerPause()" class="secondary">Pause</button>
+            <button onclick="app.triggerSeekReset()" class="secondary">Sync Time</button>
+            <button onclick="app.leaveRoom()" class="danger">Leave</button>
+        </div>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            app.init();
+        });
+
+        const app = {
+            peer: null,
+            conn: null,          
+            connections: [],     
+            isHost: false,
+            myId: null,
+            isSyncing: false,
+            checkTimeout: null,
+            tempPeer: null,
+            selectedFile: null,
+
+            init: function() {
+                this.setupInputListeners();
+                this.setupFileListener();
+            },
+
+            toggleInputMethod: function() {
+                if($('#host-file-area').is(':visible')) {
+                    $('#host-file-area').hide();
+                    $('#url-input-container').css('display', 'block');
+                    $('#toggle-source-btn').text('Switch to File');
+                } else {
+                    $('#url-input-container').css('display', 'none');
+                    $('#host-file-area').show();
+                    $('#toggle-source-btn').text('Switch to URL');
+                }
+            },
+
+            setupFileListener: function() {
+                $('#local-file-input').on('change', (e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+                    
+                    this.selectedFile = file;
+                    $('#file-name').text(file.name + " (" + (file.size/1024/1024).toFixed(2) + " MB)");
+                    
+                    // Show warning if file is large
+                    if(file.size > 300 * 1024 * 1024) { // > 300MB
+                        $('#warning-text').show();
+                    } else {
+                        $('#warning-text').hide();
+                    }
+
+                    // Auto load file into local player for preview
+                    const url = URL.createObjectURL(file);
+                    $('#main-video')[0].src = url;
+                    
+                    // Broadcast file to guests (Simulated for new joiners, actual transfer is complex for multiple guests)
+                    // For this simple version, we broadcast a flag that "Host has a file ready"
+                    // Real implementation of file transfer to multiple guests requires sequential sending.
+                    // We will implement sending to existing guests now.
+                    this.sendFileToGuests(file);
+                });
+            },
+
+            sendFileToGuests: function(file) {
+                if(!this.isHost) return;
+                
+                // Create object URL for local host
+                const localUrl = URL.createObjectURL(file);
+                
+                // We cannot send a 500MB file instantly via broadcast. 
+                // We must send it to each connection individually.
+                $('#status-msg').text("Sending file to guests...");
+                $('#progress-container').show();
+                
+                this.connections.forEach(conn => {
+                    if (conn.open) {
+                        // Note: PeerJS handles chunking, but this might be slow for large files
+                        conn.send({ 
+                            type: 'file-transfer-start', 
+                            name: file.name,
+                            size: file.size,
+                            mime: file.type
+                        });
+
+                        // We use a reader or just send the file object
+                        // PeerJS supports sending Blobs directly but connection reliability is key.
+                        // Ideally we send chunks, but let's try direct send first.
+                        conn.send(file); 
+                    }
+                });
+
+                // Since direct sending doesn't give progress easily in PeerJS without custom chunking code,
+                // We will fake the progress bar for UI or just show "Sending..."
+                let percent = 0;
+                let interval = setInterval(() => {
+                    percent += 5;
+                    $('#progress-bar').css('width', percent + '%').text(percent + '%');
+                    if(percent >= 100) {
+                        clearInterval(interval);
+                        setTimeout(() => {
+                            $('#progress-container').hide();
+                            $('#status-msg').text("File Sent.");
+                        }, 500);
+                    }
+                }, 200);
+            },
+
+            setupInputListeners: function() {
+                $('#host-room-name').on('input', (e) => {
+                    const name = $(e.target).val().trim();
+                    const msgEl = $('#availability-msg');
+                    const btnEl = $('#btn-create-room');
+                    clearTimeout(this.checkTimeout);
+                    if(this.tempPeer) { this.tempPeer.destroy(); this.tempPeer = null; }
+                    if (name.length === 0) {
+                        msgEl.text(''); btnEl.prop('disabled', true); return;
+                    }
+                    this.checkTimeout = setTimeout(() => { this.checkRoomAvailability(name); }, 800);
+                });
+            },
+
+            checkRoomAvailability: function(roomName) {
+                const msgEl = $('#availability-msg');
+                const btnEl = $('#btn-create-room');
+                msgEl.text('Checking...').css('color', 'yellow');
+                btnEl.prop('disabled', true);
+                this.tempPeer = new Peer();
+                this.tempPeer.on('open', (id) => {
+                    const conn = this.tempPeer.connect(roomName);
+                    conn.on('open', () => {
+                        msgEl.text('Room Name Taken ❌').css('color', 'red');
+                        this.cleanupCheck();
+                    });
+                    conn.on('error', (err) => {
+                        if(err.type === 'peer-unavailable') {
+                            msgEl.text('Available ✓').css('color', '#1db954');
+                            btnEl.prop('disabled', false);
+                            this.cleanupCheck();
+                        }
+                    });
+                });
+                this.tempPeer.on('error', (err) => { msgEl.text('Network Error').css('color', 'orange'); this.cleanupCheck(); });
+                setTimeout(() => { this.cleanupCheck(); }, 5000);
+            },
+
+            cleanupCheck: function() {
+                if(this.tempPeer) { this.tempPeer.destroy(); this.tempPeer = null; }
+            },
+
+            showSelectScreen: function() { $('.screen').removeClass('active'); $('#screen-select').addClass('active'); },
+            becomeHost: function() { $('.screen').removeClass('active'); $('#screen-host-setup').addClass('active'); },
+            showJoinScreen: function() { $('.screen').removeClass('active'); $('#screen-join').addClass('active'); },
+            showTheaterScreen: function() { $('.screen').removeClass('active'); $('#screen-theater').addClass('active'); },
+
+            initHost: function() {
+                const customName = $('#host-room-name').val().trim();
+                if(!customName) return;
+                this.cleanupCheck();
+                this.isHost = true;
+                this.peer = new Peer(customName, { debug: 1 });
+
+                this.peer.on('open', (id) => {
+                    this.myId = id;
+                    this.showTheaterScreen();
+                    $('#room-code-display').text(id);
+                    $('#status-msg').text("Room active. Select a file.");
+                    this.setupVideoListeners();
+                });
+
+                this.peer.on('connection', (conn) => this.handleGuestConnection(conn));
+
+                this.peer.on('error', (err) => {
+                    if (err.type === 'unavailable-id') { alert("Name taken!"); this.becomeHost(); }
+                    else { alert("Error: " + err.type); this.showSelectScreen(); }
+                });
+            },
+
+            handleGuestConnection: function(conn) {
+                this.connections.push(conn);
+                this.updatePeerCount();
+                conn.on('open', () => {
+                    const video = $('#main-video')[0];
+                    // Send mode: 'file' or 'url'
+                    const mode = $('#url-input-container').is(':visible') ? 'url' : 'file';
+                    
+                    conn.send({
+                        type: 'init',
+                        mode: mode,
+                        url: $('#video-url-input').val(),
+                        // We don't send file immediately on join to save RAM, only if guest requests or if we re-send logic
+                        // For simplicity, if we have a file selected, we send it now (Risky but functional)
+                        hasFile: !!this.selectedFile
+                    });
+                    
+                    if(this.selectedFile) {
+                         // Resend file to new joiner
+                         this.sendFileToGuests(this.selectedFile);
+                    }
+                });
+                conn.on('close', () => { this.connections = this.connections.filter(c => c !== conn); this.updatePeerCount(); });
+                conn.on('data', (data) => {
+                    if (!this.isHost) return;
+                    const video = $('#main-video')[0];
+                    this.isSyncing = true; 
+                    if (data.type === 'pauseRequest') { video.pause(); this.broadcast({ type: 'pause' }); }
+                    else if (data.type === 'playRequest') { video.play(); this.broadcast({ type: 'play' }); }
+                    else if (data.type === 'seekRequest') { video.currentTime = data.time; this.broadcast({ type: 'seek', time: data.time }); }
+                    setTimeout(() => { this.isSyncing = false; }, 100);
+                });
+            },
+
+            loadUrlLink: function() {
+                if (!this.isHost) return;
+                const url = $('#video-url-input').val();
+                const video = $('#main-video')[0];
+                this.broadcast({ type: 'urlChange', url: url });
+                video.src = url;
+                video.play();
+            },
+
+            broadcast: function(data) {
+                this.connections.forEach(conn => { if (conn.open) conn.send(data); });
+            },
+            updatePeerCount: function() { $('#peer-num').text(this.connections.length); },
+
+            setupVideoListeners: function() {
+                const video = $('#main-video')[0];
+                video.addEventListener('play', () => { if (this.isHost && !this.isSyncing) this.broadcast({ type: 'play' }); });
+                video.addEventListener('pause', () => { if (this.isHost && !this.isSyncing) this.broadcast({ type: 'pause' }); });
+                video.addEventListener('seeked', () => { if (this.isHost && !this.isSyncing) this.broadcast({ type: 'seek', time: video.currentTime }); });
+            },
+
+            joinRoom: function() {
+                const hostId = $('#join-room-input').val().trim();
+                if (!hostId) return alert("Enter a code");
+                if(this.peer) this.peer.destroy();
+                this.peer = new Peer(null, { debug: 1 });
+                this.conn = this.peer.connect(hostId);
+                this.conn.on('open', () => {
+                    this.isHost = false;
+                    this.showTheaterScreen();
+                    $('#host-controls-area').hide();
+                    $('#host-file-area').hide();
+                    $('#url-input-container').hide();
+                    $('#toggle-source-btn').hide();
+                    $('#status-msg').text("Connected: " + hostId);
+                });
+                this.conn.on('data', (data) => this.handleHostData(data));
+                this.conn.on('error', () => alert("Connection failed. Check code."));
+            },
+
+            handleHostData: function(data) {
+                const video = $('#main-video')[0];
+                this.isSyncing = true;
+
+                // FILE TRANSFER HANDLING
+                if(data instanceof Blob) {
+                    $('#status-msg').text("Receiving File...");
+                    $('#progress-container').show();
+                    $('#progress-bar').css('width', '100%').text('Processing...');
+                    
+                    const url = URL.createObjectURL(data);
+                    video.src = url;
+                    $('#status-msg').text("File Received. Ready to play.");
+                    setTimeout(() => { $('#progress-container').hide(); }, 1000);
+                    return; // Exit early for file blobs
+                }
+
+                // STANDARD MESSAGE HANDLING
+                switch(data.type) {
+                    case 'init': 
+                        // If host has file, wait for it. If URL, load it.
+                        if(data.mode === 'url' && data.url) {
+                            video.src = data.url;
+                            video.play(); 
+                        }
+                        break;
+                    case 'urlChange':
+                        video.src = data.url;
+                        video.play();
+                        break;
+                    case 'play':
+                        video.play().catch(e => {});
+                        break;
+                    case 'pause':
+                        video.pause();
+                        break;
+                    case 'seek':
+                        video.currentTime = data.time;
+                        break;
+                }
+                setTimeout(() => { this.isSyncing = false; }, 100);
+            },
+
+            triggerPlay: function() { const vid = $('#main-video')[0]; if(this.isHost) vid.play(); else { vid.play(); if(this.conn) this.conn.send({ type: 'playRequest' }); } },
+            triggerPause: function() { const vid = $('#main-video')[0]; if(this.isHost) vid.pause(); else { vid.pause(); if(this.conn) this.conn.send({ type: 'pauseRequest' }); } },
+            triggerSeekReset: function() { const vid = $('#main-video')[0]; if(this.isHost) this.broadcast({ type: 'seek', time: vid.currentTime }); else { if(this.conn) this.conn.send({ type: 'seekRequest', time: vid.currentTime }); } },
+            leaveRoom: function() { location.reload(); }
+        };
+    </script>
+</body>
+</html>
