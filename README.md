@@ -1,10 +1,14 @@
 # 🎬 VR Sync Cinema
 
+[![Live Demo](https://img.shields.io/badge/demo-Launch_App-brightgreen?style=for-the-badge&logo=google-chrome&logoColor=white)](https://muletjewels.github.io/vr-sync-cinema/)
+
 A free, browser-based room that allows you to watch local files or online videos together in perfect synchronization.
 
-Works on **Oculus Quest 1, ... Quest 3, Phones and other devices with browsers.**.
+👉 **Open the App:** [https://muletjewels.github.io/vr-sync-cinema/](https://muletjewels.github.io/vr-sync-cinema/)
 
-![Version](https://img.shields.io/badge/version-1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green)
+Works on **Oculus Quest 1, Quest 2, Quest 3, Phones, and other devices with browsers.**
+
+![Version](https://img.shields.io/badge/version-1.0-blue) ![License](https://img.shields.io/badge/license-CC_BY--NC_4.0-lightgrey)
 
 ## 🌟 Why use this?
 
@@ -25,7 +29,7 @@ Works on **Oculus Quest 1, ... Quest 3, Phones and other devices with browsers.*
 
 ### 1. The Host (The Controller)
 
-1.  Open the app in your browser.
+1.  Open the app: [Launch Here](https://muletjewels.github.io/vr-sync-cinema/)
 2.  Click **"I am HOST"**.
 3.  Enter a unique Room Name (e.g., `my-room-123`). The app will tell you if it is available.
 4.  Click **Create Room**.
@@ -62,9 +66,17 @@ Because this app transfers files directly through the browser (WebRTC), the file
 
 ## 📝 License
 
-This project is open source and available under the [MIT License](LICENSE).
+This project is licensed under **Creative Commons Attribution-NonCommercial 4.0 International (CC BY-NC 4.0)**.
+
+**✅ You are free to:**
+* **Share:** Copy and redistribute the material in any medium or format.
+* **Adapt:** Remix, transform, and build upon the material.
+
+**🚫 Under the following terms:**
+* **NonCommercial:** You may not use the material for commercial purposes without explicit permission.
+
+> *Watch multiple devices online mp4 in sync, taken in consideration specifically Quest 1 and Quest 3 headsets.*
 
 ---
-Watch multiple devices online mp4 in sync, taken in consideration specifically Quest 1 and Quest 3 headsets
 ### Credits
 Created for the VR community to enjoy movies together.
